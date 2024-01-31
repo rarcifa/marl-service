@@ -49,13 +49,13 @@ pip install poetry
    - Build the Docker image:
 
      ```bash
-     docker build -t dqn-reinforcement-learning -f .docker/Dockerfile .
+     docker build -t marl -f .docker/Dockerfile .
      ```
 
    - Run the Docker container:
 
      ```bash
-     docker run -p 4000:80 dqn-reinforcement-learning
+     docker run -p 4000:80 marl
      ```
 
 The main.py script initializes the DQN agent setup, where it trains in a simulated scenario, playing the roles of both attacker and defender. Training progress is visualized using Matplotlib.

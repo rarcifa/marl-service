@@ -66,7 +66,7 @@ You can configure the agent by modifying the parameters in the `main.py` script.
 
 Key configurations include:
 
-- The choice of Gym environment (`env.make("CartPole-v1"`) in the provided example).
+- Gym environment setup for custom scenario.
 - The number of episodes for training (`num_episodes`).
 - Hyperparameters such as learning rate (`LR`), epsilon-greedy exploration parameters (`EPS_START`, `EPS_END`, `EPS_DECAY`), and more.
 - Replay memory capacity (`ReplayMemory(10000)`).

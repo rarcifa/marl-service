@@ -85,18 +85,19 @@ class ReentrancyEnv(gym.Env):
         )
 
         is_malicious = is_malicious_abi(contract_abi)
+        self.state = 1 if is_malicious else 0
 
-        # Assign rewards based on the provided guidelines
-        # Attacker deploys a non-malicious contract
+        # Assign rewards based on the specified guidelines
+        # Attacker deploys a non-malicious contract (action 0)
         if attacker_action == 0:
             attacker_reward = 0
             defender_reward = 1 if defender_action == 0 else -1
-        # Attacker deploys a malicious contract
-        else:
-            attacker_reward = -1 if defender_action == 1 else 1
-            defender_reward = 1 if defender_action == 1 else -1
 
-        self.state = 1 if is_malicious else 0
+        # Attacker deploys a malicious contract (action 1)
+        else:
+            attacker_reward = 1 if defender_action == 0 else -1
+            defender_reward = -1 if defender_action == 0 else 1
+
         done = True
         return self.state, (attacker_reward, defender_reward), done, {}
 

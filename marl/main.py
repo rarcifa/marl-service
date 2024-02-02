@@ -18,7 +18,7 @@ def main():
         attacker_policy_net, defender_policy_net
     )
 
-    num_episodes = 500
+    num_episodes = 6000
     attacker_cumulative_reward = 0
     defender_cumulative_reward = 0
 

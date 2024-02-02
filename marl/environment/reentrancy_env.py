@@ -5,10 +5,10 @@ This module defines a custom environment compatible with the Gymnasium framework
 a scenario where an attacker and a defender interact with smart contracts that may or may not
 contain reentrancy vulnerabilities.
 
-The environment is designed to represent a binary state space where each state corresponds to
-whether a smart contract is deployed with a reentrancy vulnerability or not. Similarly, the
-action space is binary, representing the decision to deploy a contract with or without a
-vulnerability.
+The environment uses ABIs of smart contracts to simulate the behavior of deploying contracts
+with or without vulnerabilities. The state and action spaces are binary, representing the 
+decision to deploy a contract with or without a vulnerability, and the defender's attempt to 
+identify these vulnerabilities.
 
 Classes:
     ReentrancyEnv: A Gymnasium environment simulating interactions with smart contracts.
@@ -19,6 +19,7 @@ from gymnasium import spaces
 import numpy as np
 
 from marl.utils.logger import logger
+from marl.environment.utils.helpers import *
 
 
 class ReentrancyEnv(gym.Env):
@@ -34,6 +35,8 @@ class ReentrancyEnv(gym.Env):
         action_space (gym.spaces.Discrete): The action space, binary in this case.
         observation_space (gym.spaces.Discrete): The state space, also binary.
         state (int): The current state of the environment.
+        malicious_contract_abi (dict): The ABI of a malicious contract.
+        good_contract_abi (dict): The ABI of a non-malicious contract.
     """
 
     def __init__(self):
@@ -44,10 +47,11 @@ class ReentrancyEnv(gym.Env):
         to deploy contracts with or without vulnerabilities and the state of the deployed
         contract, respectively.
         """
-        # Binary actions: deploy with/without vulnerability
+        super().__init__()
         self.action_space = spaces.Discrete(2)
-        # Binary state: contract with/without vulnerability
         self.observation_space = spaces.Discrete(2)
+        self.malicious_contract_abi = load_abi("malicious_contract_abi.json")
+        self.good_contract_abi = load_abi("normal_contract_abi.json")
 
     def reset(self):
         """
@@ -72,19 +76,27 @@ class ReentrancyEnv(gym.Env):
                    a boolean indicating if the episode is done, and an empty dictionary.
         """
         attacker_action, defender_action = actions
-        done = False
 
-        # Update state based on attacker's action
-        self.state = attacker_action
+        # Determine if the ABI is malicious based on the attacker's action
+        contract_abi = (
+            self.malicious_contract_abi
+            if attacker_action == 1
+            else self.good_contract_abi
+        )
 
-        # Reward mechanism
-        if defender_action == self.state:
-            defender_reward = 1
-            attacker_reward = -1 if attacker_action == 1 else 0
+        is_malicious = is_malicious_abi(contract_abi)
+
+        # Assign rewards based on the provided guidelines
+        # Attacker deploys a non-malicious contract
+        if attacker_action == 0:
+            attacker_reward = 0
+            defender_reward = 1 if defender_action == 0 else -1
+        # Attacker deploys a malicious contract
         else:
-            defender_reward = -1
-            attacker_reward = 1 if attacker_action == 1 else 0
+            attacker_reward = -1 if defender_action == 1 else 1
+            defender_reward = 1 if defender_action == 1 else -1
 
+        self.state = 1 if is_malicious else 0
         done = True
         return self.state, (attacker_reward, defender_reward), done, {}
 

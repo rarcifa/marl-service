@@ -95,7 +95,7 @@ class ReentrancyEnv(gym.Env):
 
         # Attacker deploys a malicious contract (action 1)
         else:
-            attacker_reward = 1 if defender_action == 0 else -1
+            attacker_reward = 1 if defender_action == 0 else 0
             defender_reward = -1 if defender_action == 0 else 1
 
         done = True

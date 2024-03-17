@@ -1,5 +1,5 @@
 """
-Defender Module.
+Detector Module.
 
 Module implementing a reinforcement learning agent using a Deep Q-Network (DQN).
 
@@ -19,9 +19,10 @@ import numpy as np
 
 from marl.utils.constants import *
 from marl.model.dqn import DQN
+from marl.utils.logger import logger
 
 
-class Defender:
+class Detector:
     """
     A reinforcement learning agent using a Deep Q-Network (DQN).
 
@@ -84,6 +85,11 @@ class Defender:
         # - Otherwise (more exploration):
         #   Select a random action from the action space.
         if sample > eps_threshold:
+            # Shape check before the model forward pass
+            if state.shape[1] != 9:
+                logger.error(f"Incorrect state shape: {state.shape}")
+                # Handle the error appropriately (e.g., skip this step or choose a random action)
+
             with torch.no_grad():
                 return self.policy_net(state).max(1).indices.view(1, 1)
         else:

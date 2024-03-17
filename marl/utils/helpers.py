@@ -8,8 +8,8 @@ from marl.model.dqn import DQN
 from marl.utils.replay_memory import ReplayMemory
 from marl.utils.constants import *
 from marl.environment.reentrancy_env import ReentrancyEnv
-from marl.agents.attacker import Attacker
-from marl.agents.defender import Defender
+from marl.agents.deployer import Deployer
+from marl.agents.detector import Detector
 from marl.utils.logger import logger
 
 
@@ -18,7 +18,7 @@ def initialize_environment_and_agents():
     Initialize the environment and the agents.
 
     Returns:
-        tuple: A tuple containing the environment, attacker and defender agents,
+        tuple: A tuple containing the environment, deployer and detector agents,
                and their respective policy networks.
     """
     # Initialize the custom environment
@@ -34,26 +34,26 @@ def initialize_environment_and_agents():
     # Assuming a binary state representation
     n_observations = 1
 
-    # Initialize DQN models for both attacker and defender
-    attacker_policy_net = DQN(n_observations, n_actions).to(DEVICE)
-    defender_policy_net = DQN(n_observations, n_actions).to(DEVICE)
+    # Initialize DQN models for both deployer and detector
+    deployer_policy_net = DQN(n_observations, n_actions).to(DEVICE)
+    detector_policy_net = DQN(n_observations, n_actions).to(DEVICE)
 
-    # Create attacker and defender agents
-    attacker = Attacker(attacker_policy_net, EPS_START, EPS_END, EPS_DECAY)
-    defender = Defender(defender_policy_net, EPS_START, EPS_END, EPS_DECAY)
+    # Create deployer and detector agents
+    deployer = Deployer(deployer_policy_net, EPS_START, EPS_END, EPS_DECAY)
+    detector = Detector(detector_policy_net, EPS_START, EPS_END, EPS_DECAY)
 
-    return env, attacker, defender, attacker_policy_net, defender_policy_net
+    return env, deployer, detector, deployer_policy_net, detector_policy_net
 
 
 def initialize_training_memory_and_plotter(
-    attacker_policy_net, defender_policy_net
+    deployer_policy_net, detector_policy_net
 ):
     """
     Initialize the replay memory, training module, and plotter.
 
     Args:
-        attacker_policy_net (DQN): The policy network for the attacker.
-        defender_policy_net (DQN): The policy network for the defender.
+        deployer_policy_net (DQN): The policy network for the deployer.
+        detector_policy_net (DQN): The policy network for the detector.
 
     Returns:
         tuple: A tuple containing the replay memory, training module, and plotter.
@@ -61,18 +61,18 @@ def initialize_training_memory_and_plotter(
     # Initialize replay memory
     memory = ReplayMemory(10000)
 
-    # Create optimizer for both attacker and defender policy networks
+    # Create optimizer for both deployer and detector policy networks
     optimizer = torch.optim.Adam(
-        list(attacker_policy_net.parameters())
-        + list(defender_policy_net.parameters()),
+        list(deployer_policy_net.parameters())
+        + list(detector_policy_net.parameters()),
         lr=LR,
         amsgrad=True,
     )
 
     # Initialize the training module
     training = Training(
-        attacker_policy_net,
-        defender_policy_net,
+        deployer_policy_net,
+        detector_policy_net,
         optimizer,
         memory,
         TAU,
@@ -88,33 +88,33 @@ def initialize_training_memory_and_plotter(
 
 def run_episode(
     env,
-    attacker,
-    defender,
+    deployer,
+    detector,
     memory,
     training,
     plotter,
     episode,
     num_episodes,
-    attacker_cumulative_reward,
-    defender_cumulative_reward,
+    deployer_cumulative_reward,
+    detector_cumulative_reward,
 ):
     """
     Run a single episode of the training loop.
 
     Args:
         env (gym.Env): The training environment.
-        attacker (Attacker): The attacker agent.
-        defender (Defender): The defender agent.
+        deployer (Deployer): The deployer agent.
+        detector (Detector): The detector agent.
         memory (ReplayMemory): The replay memory.
         training (Training): The training module.
         plotter (Plotter): The plotter for visualizing results.
         episode (int): The current episode number.
         num_episodes (int): The total number of episodes.
-        attacker_cumulative_reward (float): The cumulative reward of the attacker.
-        defender_cumulative_reward (float): The cumulative reward of the defender.
+        deployer_cumulative_reward (float): The cumulative reward of the deployer.
+        detector_cumulative_reward (float): The cumulative reward of the detector.
 
     Returns:
-        tuple: A tuple containing the updated cumulative rewards for both the attacker and the defender.
+        tuple: A tuple containing the updated cumulative rewards for both the deployer and the detector.
     """
     # Reset the environment and get the initial state
     state = torch.tensor(
@@ -124,40 +124,40 @@ def run_episode(
     logger.info(f"Episode {episode + 1}/{num_episodes}")
 
     for t in count():
-        # Select actions for both attacker and defender
-        attacker_action = attacker.select_action(state)
-        defender_action = defender.select_action(state)
+        # Select actions for both deployer and detector
+        deployer_action = deployer.select_action(state)
+        detector_action = detector.select_action(state)
 
         # Execute actions in the environment and observe the next state and rewards
-        next_state, (attacker_reward, defender_reward), done, _ = env.step(
-            (attacker_action.item(), defender_action.item())
+        next_state, (deployer_reward, detector_reward), done, _ = env.step(
+            (deployer_action.item(), detector_action.item())
         )
         next_state = torch.tensor(
             [next_state], device=DEVICE, dtype=torch.float32
         )
 
         # Update cumulative rewards
-        attacker_cumulative_reward += attacker_reward
-        defender_cumulative_reward += defender_reward
+        deployer_cumulative_reward += deployer_reward
+        detector_cumulative_reward += detector_reward
 
         # Log information about the current step
         log_step_info(
             t,
             state,
-            attacker_action,
-            defender_action,
-            attacker_reward,
-            defender_reward,
-            attacker_cumulative_reward,
-            defender_cumulative_reward,
+            deployer_action,
+            detector_action,
+            deployer_reward,
+            detector_reward,
+            deployer_cumulative_reward,
+            detector_cumulative_reward,
         )
 
         # Store the transition in replay memory
         memory.push(
             state,
-            torch.tensor([[attacker_action, defender_action]], device=DEVICE),
+            torch.tensor([[deployer_action, detector_action]], device=DEVICE),
             next_state,
-            torch.tensor([attacker_reward, defender_reward], device=DEVICE),
+            torch.tensor([deployer_reward, detector_reward], device=DEVICE),
         )
 
         # Update the current state
@@ -170,7 +170,7 @@ def run_episode(
         if done:
             # Update the plotter with the latest rewards and plot the results
             plotter.append_rewards(
-                attacker_cumulative_reward, defender_cumulative_reward
+                deployer_cumulative_reward, detector_cumulative_reward
             )
             plotter.plot_rewards()
             break
@@ -178,18 +178,18 @@ def run_episode(
     # Update the target network
     training.update_target_net()
 
-    return attacker_cumulative_reward, defender_cumulative_reward
+    return deployer_cumulative_reward, detector_cumulative_reward
 
 
 def log_step_info(
     t,
     state,
-    attacker_action,
-    defender_action,
-    attacker_reward,
-    defender_reward,
-    attacker_cumulative_reward,
-    defender_cumulative_reward,
+    deployer_action,
+    detector_action,
+    deployer_reward,
+    detector_reward,
+    deployer_cumulative_reward,
+    detector_cumulative_reward,
 ):
     """
     Log information about the current step of the episode.
@@ -197,21 +197,21 @@ def log_step_info(
     Args:
         t (int): The current step number within the episode.
         state (torch.Tensor): The current state.
-        attacker_action (int): The action taken by the attacker.
-        defender_action (int): The action taken by the defender.
-        attacker_reward (float): The reward received by the attacker.
-        defender_reward (float): The reward received by the defender.
-        attacker_cumulative_reward (float): The cumulative reward of the attacker.
-        defender_cumulative_reward (float): The cumulative reward of the defender.
+        deployer_action (int): The action taken by the deployer.
+        detector_action (int): The action taken by the detector.
+        deployer_reward (float): The reward received by the deployer.
+        detector_reward (float): The reward received by the detector.
+        deployer_cumulative_reward (float): The cumulative reward of the deployer.
+        detector_cumulative_reward (float): The cumulative reward of the detector.
     """
     logger.info(f"Step {t + 1}:")
     logger.info(f"  Current State: {state.item()}")
     logger.info(
-        f"  Attacker Action: {attacker_action.item()}, Reward: {attacker_reward}"
+        f"  Deployer Action: {deployer_action.item()}, Reward: {deployer_reward}"
     )
     logger.info(
-        f"  Defender Action: {defender_action.item()}, Reward: {defender_reward}"
+        f"  Detector Action: {detector_action.item()}, Reward: {detector_reward}"
     )
-    logger.info(f"  Cumulative Attacker Reward: {attacker_cumulative_reward}")
-    logger.info(f"  Cumulative Defender Reward: {defender_cumulative_reward}")
+    logger.info(f"  Cumulative Deployer Reward: {deployer_cumulative_reward}")
+    logger.info(f"  Cumulative Detector Reward: {detector_cumulative_reward}")
     logger.info("-" * 30)

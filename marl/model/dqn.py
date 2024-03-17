@@ -37,13 +37,15 @@ class DQN(nn.Module):
 
     def __init__(self, n_observations: int, n_actions: Any):
         """
-        Initializes the DQN model with three linear layers.
+        Initializes the DQN model with an input size tailored to the new observation space.
 
         Args:
-            n_observations (int): The number of features/observations in the input state representation.
             n_actions (int): The number of possible actions, defining the size of the output layer.
         """
         super(DQN, self).__init__()
+        n_observations = (
+            9  # Total number of features after processing the state
+        )
         self.layer1 = nn.Linear(n_observations, 128)
         self.layer2 = nn.Linear(128, 128)
         self.layer3 = nn.Linear(128, n_actions)

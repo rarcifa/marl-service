@@ -17,6 +17,7 @@ import torch.nn as nn
 from marl.model.dqn import DQN
 from marl.utils.replay_memory import ReplayMemory
 from marl.utils.constants import *
+from marl.utils.logger import logger
 
 
 class Training:
@@ -96,15 +97,32 @@ class Training:
             device=DEVICE,
             dtype=torch.bool,
         )
-        non_final_next_states = torch.cat(
+
+        non_final_next_states = torch.stack(
             [s for s in batch.next_state if s is not None]
-        )
+        ).to(DEVICE)
+
+        # Correct the handling here by ensuring we reshape or adjust non_final_next_states correctly
+        # The shape should be [number_of_non_final_states, 9], without an extra dimension
+        if non_final_next_states.nelement() != 0:
+            if (
+                non_final_next_states.dim() == 3
+                and non_final_next_states.shape[1] == 1
+            ):
+                # Remove the middle dimension if it exists and is equal to 1
+                non_final_next_states = non_final_next_states.squeeze(1)
+            elif non_final_next_states.shape[-1] != 9:
+                # Log an error if the last dimension is not 9, indicating a problem with state processing
+                logger.error(
+                    f"Incorrect non_final_next_states shape: {non_final_next_states.shape}"
+                )
+                # Consider adding corrective action or more detailed logging here
 
         # Reshape non_final_next_states to the correct shape [batch_size, n_observations]
         if (
             non_final_next_states.nelement() != 0
         ):  # Check if the tensor is not empty
-            non_final_next_states = non_final_next_states.unsqueeze(1)
+            non_final_next_states = non_final_next_states.view(-1, 1)
 
         # Concatenate the state, action, and reward batches
         state_batch = torch.cat(batch.state)
@@ -124,6 +142,11 @@ class Training:
             if (
                 non_final_next_states.nelement() != 0
             ):  # Check if the tensor is not empty
+
+                batch_size = non_final_next_states.size(0) // 9
+                non_final_next_states = non_final_next_states.view(
+                    batch_size, 9
+                )
                 next_state_values[non_final_mask] = (
                     self.target_net(non_final_next_states).max(1).values
                 )
